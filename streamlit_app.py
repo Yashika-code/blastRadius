@@ -137,7 +137,8 @@ def fetch_incidents() -> List[Dict[str, Any]]:
             return requests.get(f"{API_BASE}/incidents", timeout=2).json()
         except Exception:
             pass
-    return incident_service.list_incidents()
+    raw_list = incident_service.list_incidents()
+    return [i.model_dump() if hasattr(i, "model_dump") else i for i in raw_list]
 
 def execute_reseed() -> bool:
     if API_ONLINE:
@@ -273,6 +274,9 @@ with kpi3:
     st.metric("Active Incidents", len(inc_list))
 with kpi4:
     curr_inc = st.session_state.get("current_incident")
+    if hasattr(curr_inc, "model_dump"):
+        curr_inc = curr_inc.model_dump()
+        st.session_state["current_incident"] = curr_inc
     if curr_inc:
         sla_exp = curr_inc.get("blast_radius", {}).get("sla_exposure_minutes", 0)
         st.metric("Potential SLA Exposure", f"{sla_exp} mins (Demo Threshold)")
@@ -293,6 +297,10 @@ with tab_incident:
         st.session_state["current_incident"] = inc_list[-1]
 
     curr_inc = st.session_state.get("current_incident")
+    if hasattr(curr_inc, "model_dump"):
+        curr_inc = curr_inc.model_dump()
+        st.session_state["current_incident"] = curr_inc
+
     if not curr_inc:
         st.info("💡 No incident active. Click **'Run Demo Incident: DB Saturation'** in the sidebar to simulate an incident triage.")
     else:
@@ -413,6 +421,10 @@ with tab_simulator:
     st.caption("Actions are validated against graph fallback paths and executed against the isolated simulator. Zero destructive operations.")
 
     curr_inc = st.session_state.get("current_incident")
+    if hasattr(curr_inc, "model_dump"):
+        curr_inc = curr_inc.model_dump()
+        st.session_state["current_incident"] = curr_inc
+
     if not curr_inc:
         st.info("Trigger or select an incident first to view and execute remediation.")
     else:
