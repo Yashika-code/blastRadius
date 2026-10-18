@@ -1,0 +1,35 @@
+services:
+  falkordb:
+    image: falkordb/falkordb:latest
+    container_name: blastradius-falkordb
+    ports:
+      - "6379:6379"
+    volumes:
+      - falkordb_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build: .
+    container_name: blastradius-app
+    ports:
+      - "8000:8000"
+      - "8501:8501"
+    environment:
+      - FALKORDB_HOST=falkordb
+      - FALKORDB_PORT=6379
+      - FALKORDB_GRAPH_NAME=blast_radius
+      - DEFAULT_REMEDIATION_MODE=approval
+      - LLM_MODEL=gemini/gemini-2.5-flash
+    depends_on:
+      falkordb:
+        condition: service_healthy
+    volumes:
+      - .:/app
+
+volumes:
+  falkordb_data:
