@@ -17,6 +17,8 @@ class IncidentService:
         self.incidents[report.incident_id] = report
         return report
 
+    create_incident_from_alert = create_and_analyze
+
     def get_incident(self, incident_id: str) -> Optional[IncidentReport]:
         return self.incidents.get(incident_id)
 
@@ -62,5 +64,8 @@ class IncidentService:
                 "details": res
             })
         return res
+
+    execute_remediation = remediate_incident
+    rollback_remediation = rollback_incident
 
 incident_service = IncidentService()

@@ -158,7 +158,7 @@ def ingest_alert(alert_payload: Dict[str, Any]) -> Dict[str, Any]:
         except Exception:
             pass
     alert_obj = AlertPayload(**alert_payload)
-    return incident_service.create_incident_from_alert(alert_obj).model_dump()
+    return incident_service.create_and_analyze(alert_obj).model_dump()
 
 def remediate_incident(incident_id: str, approved: bool) -> Dict[str, Any]:
     if API_ONLINE:
@@ -167,7 +167,7 @@ def remediate_incident(incident_id: str, approved: bool) -> Dict[str, Any]:
             return r.json()
         except Exception as e:
             return {"error": str(e)}
-    res = incident_service.execute_remediation(incident_id, approved=approved)
+    res = incident_service.remediate_incident(incident_id, approved=approved)
     return res or {"error": "Incident not found or failed"}
 
 def rollback_incident(incident_id: str) -> Dict[str, Any]:
@@ -177,7 +177,7 @@ def rollback_incident(incident_id: str) -> Dict[str, Any]:
             return r.json()
         except Exception as e:
             return {"error": str(e)}
-    res = incident_service.rollback_remediation(incident_id)
+    res = incident_service.rollback_incident(incident_id)
     return res or {"error": "Incident not found or failed"}
 
 def get_incident(incident_id: str) -> Dict[str, Any]:
