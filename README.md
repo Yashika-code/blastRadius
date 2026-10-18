@@ -1,31 +1,34 @@
-# ⚡ BlastRadius Agent — Autonomous Infrastructure Incident Triage & Cascading Failure Remediation
+# ⚡ BlastRadius Agent — Infrastructure Incident Triage & Cascading Failure Analysis
 
 > **Track 01: Agents That Act on Connected Data**  
-> Graph-native incident intelligence powered by **FalkorDB** & Autonomous Dependency Traversal
+> Graph-powered incident intelligence using **FalkorDB**, FastAPI, and controlled remediation simulation.
 
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
 [![FalkorDB](https://img.shields.io/badge/FalkorDB-Graph--Database-red.svg)](https://www.falkordb.com/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-SRE--Dashboard-FF4B4B.svg)](https://streamlit.io/)
-[![Tests Passing](https://img.shields.io/badge/tests-16%20passed%20%7C%201%20skipped-brightgreen.svg)]()
+[![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-FF4B4B.svg)](https://streamlit.io/)
+[![Live Audit](https://img.shields.io/badge/live%20system%20audit-10%2F10%20passed-brightgreen.svg)](https://blastradius-agent.streamlit.app/)
+
+**Live demo:** https://blastradius-agent.streamlit.app/
 
 ---
 
-## 1. Product Overview & Problem Statement
+## 1. Overview
 
-Modern microservice ecosystems suffer from complex, hidden interdependencies. When a core infrastructure component (such as a primary database, distributed queue, or cache) degrades, incidents trigger a **cascading blast radius** across callers, gateways, and customer accounts.
+In a microservice architecture, an outage in one component can affect other services that depend on it. Engineers need to understand not only which component failed, but also how far the failure may spread and which customers could be affected.
 
-Traditional monitoring dashboards raise hundreds of noisy alerts without explaining **why** services are failing or **which high-tier customers** have immediate SLA exposure.
+**BlastRadius Agent** is a graph-powered infrastructure incident triage prototype. It models infrastructure dependencies in FalkorDB and traverses those relationships to identify direct and multi-hop impact. It also demonstrates a controlled remediation workflow using a simulator, policy checks, post-action verification, and rollback testing.
 
-**BlastRadius Agent** addresses this challenge by:
-1. Modeling services, databases, queues, ingress routes, fallback paths, and customer SLA tiers in **FalkorDB**.
-2. Autonomously traversing multi-hop dependency paths upon alert ingestion.
-3. Ranking root-cause candidates using graph evidence (in-degree shared dependencies, downstream propagation) and telemetry.
-4. Formulating safe, approval-gated simulated remediation plans (read-replica promotion, circuit-breaker tripping, fallback cache routing).
-5. Executing actions against an isolated simulation adapter and verifying post-action state in the graph with zero production risk.
-6. Generating an auditable incident report with exact graph paths and verifiable actions.
+### What it does
 
-> **Simulation & Demo Disclaimer:** All infrastructure mutations and remediations are executed against an isolated simulation adapter. No real cloud, database, or production resources are modified. Telemetry and customer accounts are synthetic demo data.
+1. Represents infrastructure components and dependency relationships in a graph.
+2. Accepts an incident alert and identifies the failing component.
+3. Traverses dependency paths to find directly and transitively impacted services.
+4. Connects impacted services to customer accounts in the demo topology.
+5. Supports policy-controlled remediation actions in an isolated simulator.
+6. Verifies simulated outcomes and tests restoration of the previous state.
+
+> **Demo and safety disclaimer:** Infrastructure telemetry and customer records are synthetic demo data. Remediation actions are executed against a simulator; the project does not modify real production infrastructure or cloud resources.
 
 ---
 
@@ -33,44 +36,49 @@ Traditional monitoring dashboards raise hundreds of noisy alerts without explain
 
 ```mermaid
 flowchart TD
-    A[Incoming Infrastructure Alert] --> B[Agent Orchestrator]
-    B --> C[FalkorDB Graph Engine]
-    B --> D[BlastRadius Traversal & Customer SLA]
-    B --> E[Root-Cause Candidate Ranking]
-    C <--> D
-    D <--> E
-    D --> F[Safe Remediation Policy Engine]
-    F -->|Requires Explicit Approval| G[Infrastructure Simulator]
-    G --> H[Post-Action Graph Verification & Audit Journal]
+    A[Infrastructure Alert] --> B[FastAPI Backend / Agent Workflow]
+    B <--> C[FalkorDB Graph]
+    B --> D[Dependency Traversal]
+    D --> E[Impact Analysis]
+    E --> F[Remediation Policy Check]
+    F -->|Approved action| G[Infrastructure Simulator]
+    F -->|Unapproved action| H[Reject Request]
+    G --> I[Post-action Verification]
+    I --> J[Rollback / Audit Results]
 ```
 
-### Modes of Operation:
-- **Observe Mode:** Analyze, traverse blast radius, and calculate potential SLA exposure without modifying state.
-- **Approval Mode (Default):** Formulate concrete remediation actions and strictly enforce human-in-the-loop approval before executing.
-- **Simulation Mode:** Execute approved operations against the infrastructure simulation adapter and update modeled graph state with instant rollback capability.
+### Workflow modes
+
+- **Observe and analyze:** Ingest an incident, traverse graph dependencies, and inspect potential impact.
+- **Policy-controlled remediation:** Reject unapproved execution requests and permit approved actions through the simulator.
+- **Verification and rollback:** Check simulated action results and test restoration of the pre-remediation state.
 
 ---
 
-## 3. Technology Stack & Rationale
+## 3. Technology Stack
 
-- **Graph Database:** **FalkorDB** (official Python client + Cypher queries) with dual-mode in-memory graph adapter for local offline testing.
-- **Backend API:** **FastAPI** + **Uvicorn** + **Pydantic v2** for typed schemas and OpenAPI documentation.
-- **Agent Orchestrator:** Tool-calling orchestrator supporting **LiteLLM** for multi-provider synthesis with a deterministic fallback engine when API keys are omitted.
-- **Frontend Command Center:** **Streamlit** engineered with a dark charcoal SRE aesthetic, real-time KPI metrics, dependency path visualizer, and approval workflows.
-- **Test Suite:** **pytest** with 17 automated unit and integration tests covering multi-hop blast radius, deduplication, approval enforcement, exact rollback, and 404 validation.
+- **Graph database:** FalkorDB, accessed through its Python client and Cypher queries.
+- **Backend API:** FastAPI, Uvicorn, and Pydantic schemas.
+- **Dashboard:** Streamlit.
+- **Graph access:** FalkorDB backend, with an in-memory adapter available for local fallback/testing.
+- **Testing:** pytest and a live-system verification script.
 
 ---
 
-## 4. Graph Schema & Relationships
+## 4. FalkorDB Graph Model
 
-### Node Labels
-- `(:Service)`: `name`, `status`, `owner_team`, `criticality`, `latency_ms`, `error_rate`, `health_score`.
-- `(:Database)`: `name`, `type`, `status`, `read_only`, `cpu_percent`, `connection_pool_usage`.
-- `(:Queue)`: `name`, `status`, `backlog`, `consumer_lag`.
-- `(:Customer)`: `id`, `name`, `tier`, `sla_minutes`, `business_criticality`.
-- `(:Ingress)`: `name`, `status`, `region`.
+The graph represents infrastructure entities as nodes and their dependencies as directed relationships. Traversing these relationships lets the system follow impact across multiple hops.
 
-### Directed Relationships
+### Node labels
+
+- `Service` — application or microservice.
+- `Database` — data stores used by services.
+- `Queue` — messaging infrastructure.
+- `Customer` — synthetic customer accounts used to demonstrate business impact.
+- `Ingress` — entry points that route traffic to services.
+
+### Relationship types
+
 - `(:Service)-[:CALLS]->(:Service)`
 - `(:Service)-[:READS_FROM]->(:Database)`
 - `(:Service)-[:WRITES_TO]->(:Database)`
@@ -80,100 +88,118 @@ flowchart TD
 - `(:Ingress)-[:ROUTES_TO]->(:Service)`
 - `(:Service)-[:FALLBACK_TO]->(:Service)`
 
-### Verified Seed Topology Counts
-- **Total Nodes:** 23 (1 Ingress, 8 Services, 4 Databases, 2 Queues, 4 Customers, plus alias indexing)
-- **Total Directed Relationships:** 23
+### Verified topology
+
+The live-system audit verified the seeded topology with **19 nodes and 23 edges**. These counts describe the current tested demo graph and may change if the seed data is updated.
 
 ---
 
-## 5. Quick Start Instructions
+## 5. Quick Start
 
 ### Prerequisites
-- Python 3.11+ or 3.12+
-- Docker & Docker Compose (for running FalkorDB container)
 
-### Step 1: Clone and Install Dependencies
+- Python 3.11 or newer
+- Docker and Docker Compose
+- Git
 
-**Windows (PowerShell):**
+### Step 1 — Clone the repository and install dependencies
+
+Replace `<repository_url>` with the URL of your repository.
+
+**Windows PowerShell**
 ```powershell
 git clone <repository_url>
 cd graphs_hack
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
-**Linux / macOS:**
+**Linux / macOS**
 ```bash
 git clone <repository_url>
 cd graphs_hack
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
-### Step 2: Configure Environment
+### Step 2 — Configure environment variables
 
-Copy `.env.example` to `.env`:
+Copy the example environment file:
+
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Environment variables:
-- `FALKORDB_HOST`: Hostname of FalkorDB server (default: `localhost`)
-- `FALKORDB_PORT`: Port of FalkorDB server (default: `6379`)
-- `FALKORDB_GRAPH_NAME`: Graph name (default: `blast_radius`)
-- `ALLOW_MEMORY_FALLBACK`: Set to `True` to allow automatic local in-memory fallback if FalkorDB is offline.
+Configure these values as needed:
 
-### Step 3: Run FalkorDB with Docker Compose
+| Variable | Purpose | Default |
+|---|---|---|
+| `FALKORDB_HOST` | FalkorDB host reachable from the API process | `localhost` |
+| `FALKORDB_PORT` | FalkorDB port | `6379` |
+| `FALKORDB_GRAPH_NAME` | Graph name | `blast_radius` |
+| `ALLOW_MEMORY_FALLBACK` | Whether local in-memory fallback is allowed when FalkorDB is unavailable | Project configuration |
+
+**Connection note:** If the API runs directly on Windows while FalkorDB is exposed through Docker on the same machine, `127.0.0.1` may be the appropriate host. If the API runs inside Docker Compose, use the FalkorDB service name on the Compose network. Configure the host according to where the API process runs.
+
+### Step 3 — Start FalkorDB
+
 ```bash
 docker compose up -d
-```
-Verify FalkorDB container health:
-```bash
 docker ps
 ```
 
-### Step 4: Seed the Graph Topology
-Seed the topology nodes and directed relationships:
+Wait until the FalkorDB container is healthy before starting the API.
+
+### Step 4 — Seed the graph
+
 ```powershell
 python scripts/seed_graph.py
 ```
 
-### Step 5: Start Backend API and Streamlit UI
+### Step 5 — Start the API
 
-**Terminal 1 — FastAPI Backend:**
 ```powershell
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
-Interactive Swagger API docs: `http://127.0.0.1:8000/docs`
 
-**Terminal 2 — Streamlit SRE Command Center:**
+Open the interactive API documentation at:
+
+http://127.0.0.1:8000/docs
+
+### Step 6 — Start the Streamlit dashboard
+
+In a second terminal:
+
 ```powershell
 streamlit run app/ui/dashboard.py
 ```
-Command Center UI: `http://localhost:8501`
+
+Open the dashboard at:
+
+http://localhost:8501
 
 ---
 
-## 6. Demo Walkthrough: Saturated Database Incident
+## 6. Demo Walkthrough: Database Incident
 
-1. Open `http://localhost:8501`.
-2. Inspect the sidebar connection indicator:
-   - When FalkorDB is running: `🟢 Graph Database: FalkorDB (Connected)`
-   - When offline: `⚠️ Graph Engine: In-Memory Fallback (blast_radius)`
-3. In the sidebar, click **"🚀 Run Demo Incident: DB Saturation"**.
-4. The agent executes the triage pipeline:
-   - **Component Triage:** Flags saturated `user-creds-postgres` (CPU: 96.4%, Pool: 98%).
-   - **Root Cause Ranking:** Ranks `user-creds-postgres` as #1 candidate based on telemetry saturation and in-degree callers.
-   - **Multi-Hop Traversal:** Traces direct impact on `auth-service` and `user-profile-service`, and transitive impact on `order-service` and `payment-service`.
-   - **Customer Impact:** Identifies `Acme Global Enterprise` and `Fintech Pro Payments` (Tier-1 contractual SLA threshold: 15 mins) as exposed.
-   - **Remediation Formulation:** Proposes safe read-replica promotion (`user-profile-replica`), fallback cache enablement (`auth-redis-cache`), and caller circuit breakers.
-5. Navigate to the **"🛡️ Remediation & Rollback Simulator"** tab.
-6. Verify approval gating: Click Execute without checking the confirmation box (rejected with HTTP 400).
-7. Check the explicit approval box and click **"⚡ Execute Approved Remediation Plan"**.
-8. Inspect post-action verification and audit logs showing replica promotion and cache routing.
-9. Click **"⏪ Rollback Simulated Actions"** to verify state restoration to the pre-incident snapshot.
+1. Open the Streamlit dashboard.
+2. Confirm that the application reports **FalkorDB** as the active backend when the database is running.
+3. Run the available database-saturation demo incident, or submit an incident through the UI/API.
+4. Inspect the identified failing component and the dependency graph traversal results.
+5. Review the directly impacted services and downstream services.
+6. Inspect the customer accounts identified by the demo topology.
+7. Review the proposed remediation actions.
+8. Confirm that unapproved execution is rejected.
+9. Execute approved actions in the simulator and inspect the verification results.
+10. Run rollback and confirm that the pre-remediation state is restored.
+
+The verified example incident uses `user-creds-postgres` as the failing component. The audit identified `auth-service` and `user-profile-service` as directly impacted, `payment-service` and `order-service` as transitively impacted, and four customer accounts in the demo data.
+
+> Dashboard labels and navigation may vary as the UI evolves. Use the controls shown in your current deployment.
 
 ---
 
 ## 7. Example Alert Payload
+
+The following is an example synthetic alert. Adjust the fields to match the API schema in the current version of the application.
 
 ```json
 {
@@ -189,49 +215,90 @@ Command Center UI: `http://localhost:8501`
     "max_connections": 200,
     "waiting_queries": 48
   },
-  "description": "Primary PostgreSQL database user-creds-postgres CPU reached 96.4% and connection pool is saturated at 98%."
+  "description": "Synthetic demo alert for high database CPU and connection-pool saturation."
 }
 ```
 
-Trigger triage via cURL:
+Save the payload as `alert.json`, then submit it to the local API:
+
 ```bash
 curl -X POST "http://127.0.0.1:8000/alert" \
-     -H "Content-Type: application/json" \
-     -d @alert.json
+  -H "Content-Type: application/json" \
+  -d @alert.json
 ```
+
+Refer to the live API documentation at `http://127.0.0.1:8000/docs` for the current endpoint schema.
 
 ---
 
-## 8. Automated Testing
+## 8. Verification & Tests
 
-Run the full automated test suite (17 tests):
+### Run the automated tests
+
 ```powershell
 python -m pytest tests/ -v
 ```
 
-Test coverage:
-- Truthful health endpoint & backend reporting (`test_health_endpoint`)
-- Topology overview inspection (`test_graph_overview_endpoint`)
-- Idempotent graph seeding (`test_graph_seed_endpoint`)
-- Input validation rejection on empty components (`test_alert_validation_error`)
-- Incident 404 handling (`test_incident_not_found_404`)
-- Full incident triage & lifecycle (`test_alert_triage_and_incident_lifecycle`)
-- Node property verification (`test_graph_seeding_and_nodes`)
-- Multi-hop traversal & direction (`test_blast_radius_multi_hop_traversal`)
-- Customer impact deduplication (`test_customer_impact_deduplication_and_tiers`)
-- Missing component handling (`test_missing_or_unknown_component`)
-- Root cause ranking (`test_root_cause_candidate_ranking`)
-- Fallback path discovery (`test_fallback_paths_discovery`)
-- Approval enforcement (`test_remediation_approval_enforcement`)
-- Simulated execution and exact rollback (`test_simulated_remediation_execution_and_rollback`)
-- Repeated remediation and rollback safety (`test_repeated_remediation_and_rollback_safety`)
-- Unhealthy fallback target rejection (`test_unhealthy_fallback_target_rejection`)
-- Live FalkorDB Cypher integration test (`test_live_falkordb_connectivity_and_cypher`)
+### Run the live-system audit
+
+With the API running and FalkorDB reachable:
+
+```powershell
+python scripts/verify_live_system.py
+```
+
+The latest reported live-system audit completed with **10 passed, 0 failed, and 0 skipped**.
+
+The audit covered:
+
+- API reachability.
+- Active backend identification and health reporting.
+- Live FalkorDB connectivity.
+- Graph overview counts.
+- Incident ingestion and multi-hop dependency traversal.
+- Request validation.
+- Rejection of unapproved remediation.
+- Simulated remediation and post-action verification.
+- Rollback to the exact pre-remediation state.
+- Correct `404` handling for a missing incident.
+
+The live-system audit and the pytest suite are separate checks; their counts should not be treated as interchangeable.
 
 ---
 
 ## 9. Safety, Limitations & Future Work
 
-- **Safety Guarantee:** The remediation engine operates strictly against a safe simulation adapter. It never issues mutating cloud commands or destructive database drops.
-- **Rollback Snapshots:** Executed actions preserve an in-memory topology state snapshot for reversible rollbacks.
-- **Known Environment Note:** If Docker Desktop is not running, the system transparently utilizes its in-memory graph adapter, labeling its status as `in-memory-graph-adapter` on `/health` and the UI.
+### Safety
+
+- Remediation actions run against an isolated simulator, not real infrastructure.
+- Unapproved execution requests are rejected.
+- Simulated actions are verified, and rollback is tested.
+- Demo telemetry and customer records are synthetic.
+
+### Current limitations
+
+- The project demonstrates an incident-response workflow; it is not a production SRE platform.
+- Remediation does not change real cloud resources or production databases.
+- Impact analysis depends on the accuracy and completeness of the modeled graph.
+- In-memory fallback is useful for local testing, but it should not be confused with a live FalkorDB connection. Confirm the active backend in the health endpoint before a demo.
+
+### Future work
+
+- Integrate authenticated, real telemetry sources.
+- Add graph freshness checks and richer observability.
+- Improve incident history and audit-report export.
+- Add more graph-based validation scenarios and failure-injection tests.
+- Explore integrations with monitoring and incident-management systems.
+
+---
+
+## 10. Links
+
+- **Live demo:** https://blastradius-agent.streamlit.app/
+- **FalkorDB:** https://www.falkordb.com/
+- **FastAPI documentation:** https://fastapi.tiangolo.com/
+- **Streamlit documentation:** https://docs.streamlit.io/
+
+---
+
+*Built as a prototype for Track 01: Agents That Act on Connected Data.*
